@@ -6,6 +6,7 @@ Hetzner VPS (persistent services via Coolify), and Vercel (public web).
 | Doc | Purpose |
 |-----|---------|
 | [docs/architecture.md](docs/architecture.md) | Host responsibilities, recorded resources, placement rules, guardrails |
+| [docs/remote-dev-box.md](docs/remote-dev-box.md) | Oracle as remote coding-agent dev box: capacity, free-tier storage, toolchain, execution model (#166) |
 | [docs/hermes-oracle.md](docs/hermes-oracle.md) | Hermes Agent on Oracle: install, phone access, recovery, updates |
 | [docs/access-and-integrations.md](docs/access-and-integrations.md) | How Hermes (and you) reach Hetzner, Coolify, GitHub, Vercel; credential locations |
 
