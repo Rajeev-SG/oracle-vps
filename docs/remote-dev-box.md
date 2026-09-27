@@ -169,9 +169,19 @@ The box watches **Rajeev-SG/codex-home** issues (single-host dispatcher,
 Watch live: `gh issue view <n> -R Rajeev-SG/codex-home` for labels/comments, or
 `ssh oracle 'journalctl -u issue-dispatch.service -f'`. Internals, retry/stale
 sweep and safety model: [codex-home `scripts/issue-dispatch/README.md`](https://github.com/Rajeev-SG/codex-home/blob/main/scripts/issue-dispatch/README.md).
-Note: the Mac LaunchAgent is unloaded — the Oracle box is the only dispatcher;
-to move dispatch back, fix the Mac codex path first (see below), then
-`launchctl load ~/Library/LaunchAgents/com.rajeev.issue-dispatch.plist`.
+
+**Routing (codex-home#168):** any machine can run a dispatcher against the one
+queue; `box:<name>` labels decide which host claims an issue. Add `box:oracle`
+to target this box specifically; `box:mac` targets the Mac (the Oracle box
+ignores it); no `box:` label → the host with `"default_box": true` (Oracle).
+`try_claim` re-validates routing at claim time, so two hosts can never work
+the same issue. If a claiming host dies mid-run:
+`issue-dispatch.py --reset <n>` on any host returns the issue to the queue;
+`--route <n>` reports which box owns it.
+
+The Mac LaunchAgent is currently **unloaded** — Oracle is the only active
+dispatcher. To move dispatch back to the Mac, fix the Mac codex path first
+(see below), give the Mac config `"box": "mac"`, and unload the VM timer.
 
 ## Implementation log (2026-09-27, all verified live)
 
