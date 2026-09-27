@@ -49,8 +49,11 @@ Note: `@cline/cli`'s binary is named **`clite`**.
 
 **Auth:** `~/.codex/auth.json` (ChatGPT subscription) and
 `~/.local/share/opencode/auth.json` (OpenRouter) were copied from the Mac;
-renew them there and re-copy. The Mac's `cliproxyapi` model routing is not
-replicated — the VM codex uses subscription auth directly.
+renew them there and re-copy. The Mac's local `cliproxyapi` proxy is not
+replicated, but the VM codex now has an **OpenRouter provider** in
+`~/.codex/config.toml` whose auth is pulled live from `~/.hermes/.env` (no key
+copy) — verified: `codex exec -c model_provider=openrouter -m
+z-ai/glm-5.3-flash` answers over the responses wire.
 
 **Needs adaptation:** nvm's installer fails on the VM (tarball used instead).
 browser-relay/Playwriter run in the Mac's Chrome — a remote agent can drive
@@ -99,10 +102,12 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
 - Worktrees: `<repo>/<branch>` under `/workspace/codex-worktrees` (per the
   dispatcher's rig-worktree flow); prune worktrees/branches whose PR merged
   > 7 days ago; test traces/screenshots/videos retained 7 days.
-- Disk pressure policy (80% → prune caches + build cache; 90% → prune stale
-  worktrees + images, stop new jobs): **documented, enforcement script not yet
-  written** — manual `docker builder prune` and worktree pruning apply until
-  then. With 138 GB free this is not urgent.
+- Disk pressure: **enforced** by `/usr/local/bin/workspace-disk-guard.sh` +
+  `workspace-disk-guard.timer` (every 6 h + 5 min after boot): ≥80% `/workspace`
+  → npm/uv caches + docker build cache; ≥85% → + unused images; ≥90% → + stale
+  worktrees (untouched 14+ days) removed via the parent clone. Runs as
+  `ubuntu`; never touches `/workspace/agents`, the `/workspace/Code` clones
+  themselves, `~/.codex`, `~/.hermes` or Tailscale state.
 - **Never auto-delete:** agent session state/logs (`/workspace/agents`),
   `~/.codex` (auth + sessions), `~/.hermes`, `/var/lib/tailscale`, active
   repos' `.git`, the `workspace` volume's filesystem.
@@ -131,7 +136,11 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
 - **Reboot verified 2026-09-27:** after `systemctl reboot`, `/workspace`
   mounted (nofail fstab), swap active, Docker data-root correct, timer +
   hermes-dashboard active.
-- Optional later: self-hosted Actions runner (linux-arm64) for CI on ARM.
+- **Self-hosted Actions runner:** registered to Rajeev-SG/oracle-vps
+  (labels `self-hosted, Linux, ARM64, oracle`; systemd service
+  `actions.runner.Rajeev-SG-oracle-vps.oracle-vps-685146`; binaries + `_work`
+  on `/workspace/actions-runner`). Point ARM CI jobs at `runs-on: [self-hosted,
+  arm64]`.
 
 ## Implementation log (2026-09-27, all verified live)
 
@@ -151,5 +160,14 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
    full reboot survival verified.
 6. ✅ Dispatcher ported to `issue-dispatch.timer`; e2e verified (codex-home#167
    claimed, run, `agent:done`, resumable session); Mac LaunchAgent unloaded.
+7. ✅ Disk-pressure guard implemented: `workspace-disk-guard.timer` (6 h) runs
+   the 80/85/90% tiered cleanup (`/usr/local/bin/workspace-disk-guard.sh`).
+8. ✅ Codex OpenRouter provider added to VM `~/.codex/config.toml` (auth read
+   live from `~/.hermes/.env`); verified with a real run via
+   `z-ai/glm-5.3-flash` → `OK-OPENROUTER`.
+9. ✅ Self-hosted Actions runner installed: `oracle-vps-685146`, registered to
+   Rajeev-SG/oracle-vps, labels `self-hosted, Linux, ARM64, oracle`, binaries
+   + `_work` on `/workspace/actions-runner`, systemd service `enabled` and
+   `online`.
 
 **Monthly infra cost: £0** — everything stays within Always Free.
