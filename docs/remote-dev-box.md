@@ -142,6 +142,37 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
   on `/workspace/actions-runner`). Point ARM CI jobs at `runs-on: [self-hosted,
   arm64]`.
 
+## Dispatching a task to the box
+
+The box watches **Rajeev-SG/codex-home** issues (single-host dispatcher,
+`issue-dispatch.timer`, poll every 60 s). To give it a task:
+
+1. **Create or label an issue in `Rajeev-SG/codex-home`** (only issues authored
+   by `Rajeev-SG` are accepted).
+2. **Put a `repo:` hint line in the body** — the repo where the work happens
+   (e.g. `repo: Rajeev-SG/oracle-vps`). The dispatcher auto-clones it into
+   `/workspace/Code` and creates a worktree + branch `gh-<issue>-<slug>` under
+   `/workspace/codex-worktrees`.
+3. **Add two labels:** `agent:queued` + exactly one harness label —
+   `agent:codex`, `agent:opencode`, or `agent:clite`.
+4. Within ~60 s the box claims it (`agent:queued` → `agent:running`,
+   atomic label move), builds the prompt from the issue title + body + comments
+   (≤ 100k chars), and runs the harness. Limits: 6 h per run, 30-min idle
+   timeout, 3 attempts. Failed provider runs resume from the recorded native
+   session (codex/opencode) instead of starting over.
+5. **Outcome:** a metadata comment lands on the issue (status, worktree,
+   branch, session id, duration) and labels move to `agent:done` or
+   `agent:failed`. GitHub stays the source of truth; worktrees are disposable
+   and get reclaimed (guard: untouched 14+ days at ≥90% disk pressure; PR
+   merged > 7 days per the retention policy).
+
+Watch live: `gh issue view <n> -R Rajeev-SG/codex-home` for labels/comments, or
+`ssh oracle 'journalctl -u issue-dispatch.service -f'`. Internals, retry/stale
+sweep and safety model: [codex-home `scripts/issue-dispatch/README.md`](https://github.com/Rajeev-SG/codex-home/blob/main/scripts/issue-dispatch/README.md).
+Note: the Mac LaunchAgent is unloaded — the Oracle box is the only dispatcher;
+to move dispatch back, fix the Mac codex path first (see below), then
+`launchctl load ~/Library/LaunchAgents/com.rajeev.issue-dispatch.plist`.
+
 ## Implementation log (2026-09-27, all verified live)
 
 1. ✅ Docker pruned: 9.9 GB images + 19.3 GB build cache removed → boot disk
