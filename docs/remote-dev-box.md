@@ -127,9 +127,11 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
   **`issue-dispatch.timer`** (OnUnitActiveSec=60, OnBootSec=60, persistent).
   End-to-end verified on codex-home#167: poll → claim → auto-clone →
   worktree → codex exec (10 s, resumable session id) → `agent:done`.
-- **The Mac LaunchAgent is unloaded** (single-host by design — two dispatchers
-  against one repo would double-claim; flock is per-machine). Rollback:
-  `launchctl load ~/Library/LaunchAgents/com.rajeev.issue-dispatch.plist`.
+- **The Mac LaunchAgent is unloaded** (only to keep one active dispatcher
+  initially — routing now makes running both safe; flock is per-machine, and
+  `box:` labels decide ownership). Rollback:
+  `launchctl load ~/Library/LaunchAgents/com.rajeev.issue-dispatch.plist`
+  (after fixing the Mac codex path, see below).
   Note: the Mac config's codex binary path
   (`/Applications/ChatGPT.app/Contents/Resources/codex`) is broken after a
   ChatGPT.app update — fix it before re-enabling Mac dispatch.
