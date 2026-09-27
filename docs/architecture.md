@@ -11,21 +11,26 @@ the live hosts, not assumed.
 ## Oracle Always Free VPS — compute / worker / agent box
 
 - Host: `oracle-vps-685146`, public `140.238.91.73`, Tailscale `100.112.158.79`
-- ARM64 (aarch64), Ubuntu 26.04.1 LTS, **2 OCPU / 11 GiB RAM / 48 GB boot disk**
-  — re-measured 2026-09-26: disk 74% used (Docker/containerd storage is 28 GB
-  of it, ~32 GB of that reclaimable; 13 GB free, ~67 GB after cleanup)
-- Role: Hermes Agent (always-on operator), Tailscale, Docker, crawling/scraping
-  workers (changedetection.io, Crawl4AI/Playwright-style jobs), batch/background
-  jobs, ingestion/extraction/normalisation, and (from #166) **remote
-  long-running coding-agent jobs** — see [remote-dev-box.md](remote-dev-box.md).
+- ARM64 (aarch64), Ubuntu 26.04.1 LTS, **2 OCPU / 11 GiB RAM + 4 GB swap**;
+  48 GB boot disk (27% used) + **150 GB `/workspace` block volume** (Always
+  Free pool, attached 2026-09-27, `nofail` fstab) — re-measured 2026-09-27
+  (investigation #166, implemented — see
+  [remote-dev-box.md](remote-dev-box.md)).
+- Role: Hermes Agent (always-on operator), Tailscale, Docker (data-root on
+  `/workspace`), crawling/scraping workers (changedetection.io,
+  Crawl4AI/Playwright-style jobs), batch/background jobs, ingestion/extraction/
+  normalisation, and **remote long-running coding-agent jobs**: `agent@.service`
+  jobs + the migrated issue dispatcher (`issue-dispatch.timer`, Mac LaunchAgent
+  unloaded) — see [remote-dev-box.md](remote-dev-box.md).
 - Inference is API-based (OpenRouter) — no local LLMs.
 - CPU is the expected constraint; keep browser concurrency **≤ 2 concurrent
   Chromium workers** and measure before raising. Benchmarked 2026-09-26: both
   cores sustain near-full throughput concurrently; one agent + build/test loop
   and one Chromium worker are comfortable, two agents building at once is
   marginal.
-- Services currently running: `hermes-dashboard` (systemd, Tailscale-only). Docker
-  daemon installed and healthy; no long-running containers yet.
+- Services currently running: `hermes-dashboard` (systemd, Tailscale-only),
+  `agent@.service` jobs, `issue-dispatch.timer`. Docker daemon healthy, no
+  long-running containers yet.
 
 ## Hetzner VPS — small persistent/core services box
 

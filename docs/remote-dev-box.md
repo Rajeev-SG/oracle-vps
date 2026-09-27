@@ -1,26 +1,26 @@
 # Oracle as remote coding-agent dev box (investigation #166)
 
-Recorded 2026-09-26. All numbers measured from the live host or from Oracle's
-published Always Free docs. Investigation only — no infrastructure was changed.
+Investigated 2026-09-26; **implemented and verified 2026-09-27**. All numbers
+measured from the live host or from Oracle's published Always Free docs.
 
-**Verdict: yes.** The existing Oracle A1 VM can be the default remote dev box
-for long-running coding-agent jobs at **£0/month incremental**, after a Docker
-cleanup and a 150 GB block volume. Compute is the hard ceiling (tenancy is
-already fully allocated); storage and tooling are not blockers.
+**Verdict: yes — and it is now live.** The A1 VM is the default remote dev box
+at **£0/month incremental**: Docker cleaned, 150 GB block volume attached as
+`/workspace`, toolchain + agent CLIs installed, `agent@.service` +
+`issue-dispatch.timer` running, reboot and e2e dispatch verified.
 
-## Measured live state (2026-09-26)
+## Measured live state (2026-09-27, post-implementation)
 
-| Metric | Value |
-|---|---|
-| CPU | 2 OCPU Ampere A1 (aarch64), idle load 0.06 |
-| RAM | 11 GiB total, 1.7 GiB used, 9.9 GiB available, **no swap** |
-| Boot disk | 48 GB, 35 GB used (74%), 13 GB free |
-| Largest consumer | `/var/lib/containerd` 28 GB (Docker images + build cache) |
-| Reclaimable now | ~32 GB: 13.0 GB images (6, 0 in use) + 19.3 GB build cache (47 entries); 0 containers, 0 volumes |
-| Idle services | journald 176 MB, hermes-dashboard 142 MB, dockerd 127 MB, containerd 68 MB, tailscaled 42 MB (RSS) |
+| Metric | Before (26th) | Now |
+|---|---|---|
+| CPU / RAM | 2 OCPU A1, 11 GiB, no swap | same, plus **4 GB swapfile** |
+| Boot disk | 48 GB, 74% used | 48 GB, **27% used** (35 GB free) |
+| Workspace | none | **150 GB block volume** at `/workspace` (138 GB free) |
+| Docker | 32 GB reclaimable inside `/var/lib/containerd` | **0 images/0 cache**, data-root `/workspace/docker`, json-file log rotation (10 MB × 3) |
+| journald | uncapped | capped `SystemMaxUse=100M` (66 MB) |
+| Dispatcher | Mac launchd only (broken codex path) | **`issue-dispatch.timer` on Oracle (60 s), e2e verified** |
 
-After cleanup the boot volume has ~67 GB free; a 150 GB block volume takes
-workspace growth off it entirely.
+Idle services: journald 176 MB, hermes-dashboard 142 MB, dockerd 127 MB,
+containerd 68 MB, tailscaled 42 MB (RSS).
 
 ## Free-tier allowance (verified from Oracle docs)
 
@@ -28,28 +28,37 @@ workspace growth off it entirely.
   continuous **2 OCPU + 12 GB**. This tenancy is **fully allocated** to the
   single VM — no £0 second VM and no resize headroom.
 - **Storage:** 200 GB combined boot+block volume pool. Boot volume is 50 GB
-  (48 GB usable) → **~150 GB block volume available at £0**, attachable to the
-  same instance without touching the boot volume. Minimum block volume 50 GB.
-  Five volume backups included; Always Free volumes and backups are free.
+  (48 GB usable) → **150 GB block volume now attached at £0** (created via OCI
+  CLI, paravirtualized attach, ext4, mounted `/workspace` by UUID with
+  `nofail`; minimum block volume 50 GB; five backups included and free).
 - **Idle reclamation:** Oracle may reclaim an A1 instance if over a 7-day
   window the 95th-percentile CPU < 20%, network < 20%, **and** memory < 20%.
   Real agent activity clears this easily; the risk applies only to a box left
-  untouched for weeks. (This instance has run since 2026-09-16.)
+  untouched for weeks.
 
 ## Tool compatibility (repo-development subset)
 
-**Works natively on linux-arm64:** git, gh, Node (tarball), npm/pnpm, Python3,
-uv, Docker + compose, Playwright (arm64 browser builds for Ubuntu 24.04),
-Vercel CLI, tmux, GitHub Actions self-hosted runner (linux-arm64 asset), and
-the coding-agent CLIs **codex, opencode-ai, @cline/cli** (all ship linux-arm64).
+**Works natively on linux-arm64 (all installed 2026-09-27):** git, gh (token +
+`gh auth setup-git` credential helper), **Node v24.21.0** (tarball at
+`/usr/local/lib/nodejs`, symlinked into `/usr/local/bin`), npm 11.19, Python3,
+uv, Docker + compose, **Playwright 1.63.0 with chromium + firefox arm64
+builds** (942 MB under `/workspace/playwright`, headless launch verified),
+tmux, GitHub Actions self-hosted runner (linux-arm64 asset), and the
+coding-agent CLIs **codex 0.157.1, opencode 1.18.32, @cline/cli 0.0.13**.
+Note: `@cline/cli`'s binary is named **`clite`**.
 
-**Needs adaptation:** nvm's installer failed on the VM (use the Node tarball or
-NodeSource apt); browser-relay/Playwriter run in the Mac's Chrome — a remote
-agent can drive them over Tailscale but only while the Mac is awake, so keep
-those workflows on the Mac.
+**Auth:** `~/.codex/auth.json` (ChatGPT subscription) and
+`~/.local/share/opencode/auth.json` (OpenRouter) were copied from the Mac;
+renew them there and re-copy. The Mac's `cliproxyapi` model routing is not
+replicated — the VM codex uses subscription auth directly.
 
-**Mac-only:** the `omp` CLI (Mach-O arm64 binary) and anything needing the
-macOS GUI/Keychain.
+**Needs adaptation:** nvm's installer fails on the VM (tarball used instead).
+browser-relay/Playwriter run in the Mac's Chrome — a remote agent can drive
+them over Tailscale but only while the Mac is awake, so keep those workflows
+on the Mac.
+
+**Mac-only:** the `omp` CLI (Mach-O arm64 binary; dropped from the VM
+dispatcher config) and anything needing the macOS GUI/Keychain.
 
 
 ## Representative repo footprints (measured on the Mac)
@@ -81,39 +90,66 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
 
 ## Cleanup / retention policy
 
-- `/workspace` on the block volume holds: repos, worktrees, npm/pnpm/uv
-  caches, Playwright browsers (`PLAYWRIGHT_BROWSERS_PATH`), Docker data-root.
-- Immediate: prune Docker images + build cache (+32 GB); cap journald at
-  100 MB (`SystemMaxUse`).
-- Worktrees: `<repo>/.worktrees/<issue>`; auto-prune worktrees/branches whose
-  PR merged > 7 days ago; test traces/screenshots/videos retained 7 days.
-- Disk pressure: 80% → prune caches + Docker build cache; 90% → prune stale
-  worktrees + Docker images; stop starting new jobs.
+- `/workspace` (block volume) holds: repos (`/workspace/Code`), worktrees
+  (`/workspace/codex-worktrees`), npm/uv caches (`/workspace/cache`), Playwright
+  browsers (`/workspace/playwright` via `/etc/environment`), Docker data-root
+  (`/workspace/docker`). Agent session state lives in `/workspace/agents`.
+- ✅ Done 2026-09-27: Docker images + build cache pruned (+29 GB); journald
+  capped at 100 MB; Docker json-file log rotation set.
+- Worktrees: `<repo>/<branch>` under `/workspace/codex-worktrees` (per the
+  dispatcher's rig-worktree flow); prune worktrees/branches whose PR merged
+  > 7 days ago; test traces/screenshots/videos retained 7 days.
+- Disk pressure policy (80% → prune caches + build cache; 90% → prune stale
+  worktrees + images, stop new jobs): **documented, enforcement script not yet
+  written** — manual `docker builder prune` and worktree pruning apply until
+  then. With 138 GB free this is not urgent.
 - **Never auto-delete:** agent session state/logs (`/workspace/agents`),
-  `~/.hermes`, `/var/lib/tailscale`, active repos' `.git`, volume backups.
+  `~/.codex` (auth + sessions), `~/.hermes`, `/var/lib/tailscale`, active
+  repos' `.git`, the `workspace` volume's filesystem.
 
-## Long-running execution architecture
+## Long-running execution architecture (implemented)
 
-- One systemd user unit (`systemd-run --user` or an `agent@.service` template)
-  per job, with tmux inside for interactive re-attach; `Restart=on-failure`
-  survives both SSH drops and reboots. journald captures logs.
-- Worktrees per issue; GitHub stays source of truth; workspaces disposable.
-- The Mac's issue dispatcher (`~/.codex/scripts/issue-dispatch`, Python stdlib
-  + flock + atomic GitHub label moves) ports as-is to a **systemd timer** on
-  Oracle — no second orchestration system.
+- **`agent@.service`** (system template, `/etc/systemd/system/agent@.service`):
+  runs `/workspace/agents/<name>/job.sh` as `ubuntu` with the workspace env
+  (Playwright/cache paths), `Restart=on-failure` + `RestartSec=5` — survives
+  SSH drops, crashes (verified: SIGKILL of the main process → NRestarts=1 →
+  recovered) and reboots. For interactive attach, tmux inside the job.
+- **Dispatcher migrated:** `~/issue-dispatch/` on the VM holds
+  `issue-dispatch.py` + a Linux `run-dispatch.sh` + `dispatch-config.json`
+  (harnesses: `agent:codex`, `agent:opencode`, `agent:clite`; `agent:omp`
+  removed — Mac-only; clone/worktree roots retargeted to `/workspace`).
+  `rig-worktree.sh` at `~/.codex/scripts/`. Enabled as
+  **`issue-dispatch.timer`** (OnUnitActiveSec=60, OnBootSec=60, persistent).
+  End-to-end verified on codex-home#167: poll → claim → auto-clone →
+  worktree → codex exec (10 s, resumable session id) → `agent:done`.
+- **The Mac LaunchAgent is unloaded** (single-host by design — two dispatchers
+  against one repo would double-claim; flock is per-machine). Rollback:
+  `launchctl load ~/Library/LaunchAgents/com.rajeev.issue-dispatch.plist`.
+  Note: the Mac config's codex binary path
+  (`/Applications/ChatGPT.app/Contents/Resources/codex`) is broken after a
+  ChatGPT.app update — fix it before re-enabling Mac dispatch.
+- **Reboot verified 2026-09-27:** after `systemctl reboot`, `/workspace`
+  mounted (nofail fstab), swap active, Docker data-root correct, timer +
+  hermes-dashboard active.
 - Optional later: self-hosted Actions runner (linux-arm64) for CI on ARM.
 
-## Implementation order (value/risk)
+## Implementation log (2026-09-27, all verified live)
 
-1. Prune Docker images + build cache on Oracle → +32 GB (zero containers or
-   volumes exist, so zero risk).
-2. Attach the 150 GB free block volume as `/workspace` (ext4, fstab).
-3. Move Docker data-root, package caches and Playwright browsers to
-   `/workspace`; add a 2–4 GB swapfile; cap journald.
-4. Install Node tarball, gh, agent CLIs (codex/opencode/cline), Playwright
-   arm64 browsers.
-5. Run the first long job under tmux + systemd; verify it survives SSH drop
-   and reboot.
-6. Port the issue dispatcher to a systemd timer on Oracle.
+1. ✅ Docker pruned: 9.9 GB images + 19.3 GB build cache removed → boot disk
+   74% → 25% (0 containers / 0 volumes existed, zero risk taken).
+2. ✅ 150 GB block volume `workspace` created (OCI CLI), paravirtualized
+   attached, ext4, mounted `/workspace` (fstab UUID, `nofail`).
+3. ✅ Docker data-root → `/workspace/docker` (daemon.json, json-file log
+   rotation); 4 GB swapfile `/swapfile` (fstab); journald `SystemMaxUse=100M`;
+   `/etc/environment` sets `PLAYWRIGHT_BROWSERS_PATH`, `NPM_CONFIG_CACHE`,
+   `UV_CACHE_DIR` into `/workspace`.
+4. ✅ Node v24.21.0 + npm 11.19 installed; codex 0.157.1 / opencode 1.18.32 /
+   clite 0.0.13 (`@cline/cli`) installed; Playwright 1.63.0 + chromium/firefox
+   arm64 browsers (942 MB) with headless-launch test passed; codex smoke run
+   OK ("OK-VM").
+5. ✅ `agent@.service` installed; crash-restart (SIGKILL → NRestarts=1) and
+   full reboot survival verified.
+6. ✅ Dispatcher ported to `issue-dispatch.timer`; e2e verified (codex-home#167
+   claimed, run, `agent:done`, resumable session); Mac LaunchAgent unloaded.
 
 **Monthly infra cost: £0** — everything stays within Always Free.
