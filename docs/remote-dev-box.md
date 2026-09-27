@@ -147,8 +147,9 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
 
 ## Dispatching a task to the box
 
-The box watches **Rajeev-SG/codex-home** issues (single-host dispatcher,
-`issue-dispatch.timer`, poll every 60 s). To give it a task:
+The box watches **Rajeev-SG/codex-home** issues (`issue-dispatch.timer`, poll
+every 60 s; one dispatcher per box — routing keeps hosts out of each other's
+way). To give it a task:
 
 1. **Create or label an issue in `Rajeev-SG/codex-home`** (only issues authored
    by `Rajeev-SG` are accepted).
