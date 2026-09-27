@@ -29,8 +29,10 @@ the live hosts, not assumed.
   and one Chromium worker are comfortable, two agents building at once is
   marginal.
 - Services currently running: `hermes-dashboard` (systemd, Tailscale-only),
-  `agent@.service` jobs, `issue-dispatch.timer`. Docker daemon healthy, no
-  long-running containers yet.
+  `agent@.service` jobs, `issue-dispatch.timer`,
+  `workspace-disk-guard.timer`, and the self-hosted GitHub Actions runner
+  (`oracle-vps-685146`, ARM64 labels). Docker daemon healthy, no long-running
+  containers yet.
 
 ## Hetzner VPS — small persistent/core services box
 
