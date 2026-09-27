@@ -136,11 +136,14 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
 - **Reboot verified 2026-09-27:** after `systemctl reboot`, `/workspace`
   mounted (nofail fstab), swap active, Docker data-root correct, timer +
   hermes-dashboard active.
-- **Self-hosted Actions runner:** registered to Rajeev-SG/oracle-vps
-  (labels `self-hosted, Linux, ARM64, oracle`; systemd service
-  `actions.runner.Rajeev-SG-oracle-vps.oracle-vps-685146`; binaries + `_work`
-  on `/workspace/actions-runner`). Point ARM CI jobs at `runs-on: [self-hosted,
-  arm64]`.
+- **Self-hosted Actions runner fleet:** registered to Rajeev-SG/codex-home
+  (`/workspace/actions-runner-codex`) and to **12 private repos**
+  (`/workspace/runners/<repo>`, labels `self-hosted, Linux, ARM64, oracle`;
+  14 systemd services total, all enabled). All private-repo workflows were
+  switched from `runs-on: ubuntu-latest` to `[self-hosted, arm64]` (PRs merged
+  2026-09-27) — private CI now costs **£0 in hosted minutes** and runs on this
+  box. Public repos stay on free GitHub-hosted runners (fork-PR safety).
+  Point ARM CI jobs at `runs-on: [self-hosted, arm64]`.
 
 ## Dispatching a task to the box
 
