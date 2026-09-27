@@ -1,6 +1,8 @@
 # Architecture: Oracle / Hetzner / Vercel
 
-Recorded 2026-09-16. Numbers are measured from the live hosts, not assumed.
+Recorded 2026-09-16; Oracle capacity re-measured 2026-09-26 (investigation
+#166 — see [remote-dev-box.md](remote-dev-box.md)). Numbers are measured from
+the live hosts, not assumed.
 
 ## Placement rule
 
@@ -9,13 +11,19 @@ Recorded 2026-09-16. Numbers are measured from the live hosts, not assumed.
 ## Oracle Always Free VPS — compute / worker / agent box
 
 - Host: `oracle-vps-685146`, public `140.238.91.73`, Tailscale `100.112.158.79`
-- ARM64 (aarch64), Ubuntu 26.04.1 LTS, **2 OCPU / 11 GiB RAM / 48 GB disk (15% used)**
+- ARM64 (aarch64), Ubuntu 26.04.1 LTS, **2 OCPU / 11 GiB RAM / 48 GB boot disk**
+  — re-measured 2026-09-26: disk 74% used (Docker/containerd storage is 28 GB
+  of it, ~32 GB of that reclaimable; 13 GB free, ~67 GB after cleanup)
 - Role: Hermes Agent (always-on operator), Tailscale, Docker, crawling/scraping
   workers (changedetection.io, Crawl4AI/Playwright-style jobs), batch/background
-  jobs, ingestion/extraction/normalisation.
+  jobs, ingestion/extraction/normalisation, and (from #166) **remote
+  long-running coding-agent jobs** — see [remote-dev-box.md](remote-dev-box.md).
 - Inference is API-based (OpenRouter) — no local LLMs.
 - CPU is the expected constraint; keep browser concurrency **≤ 2 concurrent
-  Chromium workers** and measure before raising.
+  Chromium workers** and measure before raising. Benchmarked 2026-09-26: both
+  cores sustain near-full throughput concurrently; one agent + build/test loop
+  and one Chromium worker are comfortable, two agents building at once is
+  marginal.
 - Services currently running: `hermes-dashboard` (systemd, Tailscale-only). Docker
   daemon installed and healthy; no long-running containers yet.
 
