@@ -1,20 +1,26 @@
 # Access & integrations (Hermes on Oracle → Hetzner / Coolify / GitHub / Vercel)
 
 Credential values are never committed. This file records **locations and renewal**.
+Current source restrictions, Tailscale grants and recovery are documented in
+[network access](network-access.md).
 
 ## Oracle → Hetzner (SSH over Tailscale)
 
 - Dedicated keypair `~/.ssh/hetzner` (comment `oracle-hermes`), public key added
   to Hetzner `root@jeev-hetz-1` `authorized_keys`. Password SSH stays disabled.
 - Alias (Oracle `~/.ssh/config`): `Host jeev-hetz-1` → `100.109.237.19`.
-- Traffic rides the tailnet; no new public admin ports.
+- Traffic rides the tailnet; public SSH is separately source-restricted.
+- Tailnet port `22` uses Tailscale SSH check mode. The unattended database tunnel
+  uses the dedicated restricted-key `adi-worker` listener on port `2222`, not
+  interactive Tailscale SSH.
 - Verify: `ssh oracle 'ssh jeev-hetz-1 hostname'` → `jeev-hetz-1`
 - Key rotation: generate a new key on Oracle, append the pub key on Hetzner,
   remove the old line, replace `~/.ssh/hetzner`.
 
 ## Coolify
 
-- Dashboard: https://coolify.rajeevg.com (admin UI, root team)
+- Dashboard: https://coolify.rajeevg.com (admin UI, root team). Direct public
+  management ports are blocked; HTTPS carries realtime/terminal proxy traffic.
 - API token (read + write + deploy, no expiry): Oracle `~/.secrets/coolify-api-token`,
   0600, directory 0700. Usage:
   ```bash

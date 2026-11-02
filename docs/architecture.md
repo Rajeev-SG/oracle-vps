@@ -64,8 +64,12 @@ the live hosts, not assumed.
 - Tailscale is the management network for Mac, Android phone, Oracle, Hetzner.
 - Hermes dashboard binds only to Oracle's Tailscale IP (`100.112.158.79:9119`)
   and sits behind basic auth. It is not reachable from the public internet.
-- Coolify admin lives behind `coolify-proxy`; API is used over HTTPS with a
-  scoped token. No new public admin ports were opened.
+- Coolify admin/API use HTTPS through `coolify-proxy`; direct public management
+  ports `8000`, `6001`, `6002`, `8080` are blocked over IPv4/IPv6. Persistent
+  UFW/`DOCKER-USER` rules enforce this; no Hetzner cloud firewall is attached.
+- Public SSH is source-restricted. Tailscale uses explicit device/service grants,
+  not an all-to-all rule. See [network access and recovery](network-access.md)
+  for the 2026-11-02 baseline and the private policy snapshots.
 - Oracle → Hetzner SSH runs over Tailscale with a dedicated key (`oracle-hermes`).
 - Secrets live in `~/.secrets/` (Oracle, 0600) or the macOS Keychain. Never
   commit secrets; document locations and renewal, not values.
@@ -73,7 +77,7 @@ the live hosts, not assumed.
 ## Resource check commands
 
 ```bash
-# from any host (via Tailscale aliases):
+# from the allowed home network (public aliases); away from home use Tailscale:
 ssh oracle 'free -h; df -h /; nproc; uptime; sudo docker ps'
 ssh jeev-hetz-1 'free -h; df -h /; nproc; uptime; docker ps; docker stats --no-stream'
 # Hermes can answer the same questions in chat, e.g. "What is using RAM on Oracle?"

@@ -58,6 +58,9 @@ ssh oracle 'export PATH=$HOME/.local/bin:$PATH; hermes --version'
 ```
 
 If the dashboard port is stuck: `sudo fuser -k 9119/tcp` then restart the unit.
+Public `ssh oracle` recovery works only from the allowed home source. Away from
+home, use the provider console if Tailscale is unavailable; see
+[network recovery](network-access.md#recovery).
 If Tailscale is down: `ssh oracle 'sudo tailscale up --hostname oracle-vps'`
 (approve the login URL from any signed-in browser).
 If Hermes itself is broken: re-run the installer (idempotent),

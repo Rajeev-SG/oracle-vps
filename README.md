@@ -9,6 +9,7 @@ Hetzner VPS (persistent services via Coolify), and Vercel (public web).
 | [docs/remote-dev-box.md](docs/remote-dev-box.md) | Oracle as remote coding-agent dev box: implemented 2026-09-27 — `/workspace` volume, toolchain, agent service, dispatcher timer (#166) |
 | [docs/hermes-oracle.md](docs/hermes-oracle.md) | Hermes Agent on Oracle: install, phone access, recovery, updates |
 | [docs/access-and-integrations.md](docs/access-and-integrations.md) | How Hermes (and you) reach Hetzner, Coolify, GitHub, Vercel; credential locations |
+| [docs/network-access.md](docs/network-access.md) | Current management access, firewall boundaries and recovery |
 
 Placement rule: **persistent/core → Hetzner; disposable/compute-heavy/background → Oracle; public web frontend/serverless → Vercel.**
 
