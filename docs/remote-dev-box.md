@@ -102,10 +102,11 @@ knowledge-work data; only the above subset is mirrored. Full clones (max .git
 - Worktrees: `<repo>/<branch>` under `/workspace/codex-worktrees` (per the
   dispatcher's rig-worktree flow); prune worktrees/branches whose PR merged
   > 7 days ago; test traces/screenshots/videos retained 7 days.
-- Disk pressure: **enforced** by `/usr/local/bin/workspace-disk-guard.sh` +
+- Disk pressure: **enforced** by [workspace-disk-guard.sh](../scripts/workspace-disk-guard.sh)
+  (installed at `/usr/local/bin/workspace-disk-guard.sh`) +
   `workspace-disk-guard.timer` (every 6 h + 5 min after boot): ≥80% `/workspace`
-  → npm/uv caches + docker build cache; ≥85% → + unused images; ≥90% → + stale
-  worktrees (untouched 14+ days) removed via the parent clone. Runs as
+  → npm/uv caches + docker build cache; ≥85% → + unused images except those
+  labelled `keep=true`; ≥90% → + stale worktrees (untouched 14+ days) removed via the parent clone. Runs as
   `ubuntu`; never touches `/workspace/agents`, the `/workspace/Code` clones
   themselves, `~/.codex`, `~/.hermes` or Tailscale state.
 - **Never auto-delete:** agent session state/logs (`/workspace/agents`),
